@@ -1,38 +1,109 @@
 import re
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
-from werkzeug.security import generate_password_hash, check_password_hash
-import mysql.connector
+import sqlite3
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
-from flask import Flask, render_template, session, redirect, url_for
-
+from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 # -------------------------------------------------------------
-# DATABASE CONNECTION HELPER
+# DATABASE CONNECTION HELPER (SQLite)
 # -------------------------------------------------------------
 def get_db_connection():
-    return mysql.connector.connect(
-        host=os.getenv('DB_HOST', 'localhost'),
-        user=os.getenv('DB_USER', 'root'),
-        password=os.getenv('DB_PASSWORD', ''),
-        database=os.getenv('DB_NAME', 'planner_db')
-    )
+    db_path = os.path.join(os.path.dirname(__file__), 'planner.db')
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row  # Allows accessing columns by name
+    return conn
 
 # -------------------------------------------------------------
-# DEFAULT ADMIN SEEDER
+# INITIALIZE TABLES & DEFAULT ADMIN
 # -------------------------------------------------------------
-def create_default_admin():
+def init_db():
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
+    
+    # Create tables if they don't exist
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            is_admin INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            priority TEXT DEFAULT 'Medium',
+            status TEXT DEFAULT 'todo',
+            due_date TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS subtasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            FOREIGN KEY (task_id) REFERENCES tasks (id)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            start_time TEXT NOT NULL,
+            end_time TEXT,
+            is_public INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS event_attendees (
+            event_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            PRIMARY KEY (event_id, user_id)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def create_default_admin():
+    init_db()
+    conn = get_db_connection()
+    cursor = conn.cursor()
     cursor.execute("SELECT * FROM users WHERE username = 'admin'")
     admin_user = cursor.fetchone()
     
     if not admin_user:
         hashed_password = generate_password_hash('admin123')
         cursor.execute(
-            "INSERT INTO users (username, email, password_hash, is_admin) VALUES (%s, %s, %s, %s)",
+            "INSERT INTO users (username, email, password_hash, is_admin) VALUES (?, ?, ?, ?)",
             ('admin', 'admin@planner.com', hashed_password, 1)
         )
         conn.commit()
@@ -49,13 +120,10 @@ with app.app_context():
 # -------------------------------------------------------------
 @app.route('/')
 def home():
-    # If the user is already logged in, send them straight to their dashboard
     if 'user_id' in session:
         if session.get('is_admin'):
-            return redirect(url_for('admin'))
+            return redirect(url_for('admin_panel'))
         return redirect(url_for('dashboard'))
-    
-    # If not logged in, show the landing page template
     return render_template('home.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -65,9 +133,9 @@ def login():
         password = request.form.get('password')
 
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         try:
-            cursor.execute("SELECT * FROM users WHERE username = %s OR email = %s", (username, username))
+            cursor.execute("SELECT * FROM users WHERE username = ? OR email = ?", (username, username))
             user = cursor.fetchone()
             
             if not user:
@@ -76,7 +144,7 @@ def login():
                 flash('Invalid username or password', 'error')
                 return redirect(url_for('login'))
 
-            stored_password = user.get('password') or user.get('password_hash')
+            stored_password = user['password_hash'] if 'password_hash' in user.keys() else user.get('password')
 
             if stored_password and check_password_hash(stored_password, password):
                 session['user_id'] = user['id']
@@ -111,17 +179,14 @@ def register():
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
         
-        # Validation: Name must start with a capital letter
         if not username or not username[0].isupper():
             flash('Username must start with a capital letter.', 'error')
             return redirect(url_for('register'))
             
-        # Validation: Passwords match check
         if password != confirm_password:
             flash('Passwords do not match.', 'error')
             return redirect(url_for('register'))
 
-        # Validation: Minimum 8 characters, include a number
         if len(password) < 8 or not re.search(r"\d", password):
             flash('Password must be at least 8 characters long and contain at least one number.', 'error')
             return redirect(url_for('register'))
@@ -132,7 +197,7 @@ def register():
         cursor = conn.cursor()
         try:
             cursor.execute(
-                "INSERT INTO users (username, email, password_hash, is_admin) VALUES (%s, %s, %s, 0)",
+                "INSERT INTO users (username, email, password_hash, is_admin) VALUES (?, ?, ?, 0)",
                 (username, email, hashed_password)
             )
             conn.commit()
@@ -140,10 +205,10 @@ def register():
             conn.close()
             flash('Account created successfully! Please log in.', 'success')
             return redirect(url_for('login'))
-        except mysql.connector.Error as err:
+        except sqlite3.IntegrityError as err:
             cursor.close()
             conn.close()
-            flash(f"Database Error: {err}", 'error')
+            flash(f"Username or email already exists.", 'error')
             return redirect(url_for('register'))
 
     return render_template('auth/register.html')
@@ -172,9 +237,9 @@ def tasks_page():
         
     user_id = session['user_id']
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM tasks WHERE user_id = %s ORDER BY created_at DESC", (user_id,))
+    cursor.execute("SELECT * FROM tasks WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
     all_tasks = cursor.fetchall()
     
     cursor.close()
@@ -202,7 +267,7 @@ def add_task_secure():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO tasks (user_id, title, description, priority, status, due_date) VALUES (%s, %s, %s, %s, 'todo', %s)",
+        "INSERT INTO tasks (user_id, title, description, priority, status, due_date) VALUES (?, ?, ?, ?, 'todo', ?)",
         (user_id, title, description, priority, due_date)
     )
     conn.commit()
@@ -224,7 +289,7 @@ def api_update_task_status():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "UPDATE tasks SET status = %s WHERE id = %s AND user_id = %s",
+        "UPDATE tasks SET status = ? WHERE id = ? AND user_id = ?",
         (new_status, task_id, user_id)
     )
     conn.commit()
@@ -241,7 +306,7 @@ def delete_task_secure(task_id):
     user_id = session['user_id']
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM tasks WHERE id = %s AND user_id = %s", (task_id, user_id))
+    cursor.execute("DELETE FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id))
     conn.commit()
     cursor.close()
     conn.close()
@@ -264,9 +329,9 @@ def api_get_events():
         
     user_id = session['user_id']
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT id, title, start_time AS start, end_time AS end FROM events WHERE user_id = %s", (user_id,))
-    events = cursor.fetchall()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, title, start_time AS start, end_time AS end FROM events WHERE user_id = ?", (user_id,))
+    events = [dict(row) for row in cursor.fetchall()]
     cursor.close()
     conn.close()
 
@@ -287,7 +352,7 @@ def add_event_secure():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO events (user_id, title, description, start_time, end_time, is_public) VALUES (%s, %s, %s, %s, %s, %s)",
+        "INSERT INTO events (user_id, title, description, start_time, end_time, is_public) VALUES (?, ?, ?, ?, ?, ?)",
         (user_id, title, description, start_time, end_time, is_public)
     )
     conn.commit()
@@ -303,23 +368,26 @@ def events_page():
         
     user_id = session['user_id']
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM events WHERE user_id = %s ORDER BY start_time ASC", (user_id,))
-    my_events = cursor.fetchall()
+    cursor.execute("SELECT * FROM events WHERE user_id = ? ORDER BY start_time ASC", (user_id,))
+    my_events = [dict(row) for row in cursor.fetchall()]
     
     cursor.execute("SELECT * FROM events WHERE is_public = 1 ORDER BY start_time ASC")
-    public_events = cursor.fetchall()
+    public_events_raw = cursor.fetchall()
     
-    for event in public_events:
+    public_events = []
+    for event_row in public_events_raw:
+        event = dict(event_row)
         cursor.execute("""
             SELECT users.id, users.username 
             FROM event_attendees 
             JOIN users ON event_attendees.user_id = users.id 
-            WHERE event_attendees.event_id = %s
+            WHERE event_attendees.event_id = ?
         """, (event['id'],))
-        event['attendees'] = cursor.fetchall()
+        event['attendees'] = [dict(r) for r in cursor.fetchall()]
         event['is_attending'] = any(att['id'] == user_id for att in event['attendees'])
+        public_events.append(event)
     
     cursor.close()
     conn.close()
@@ -336,7 +404,7 @@ def attend_event(event_id):
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT IGNORE INTO event_attendees (event_id, user_id) VALUES (%s, %s)",
+            "INSERT OR IGNORE INTO event_attendees (event_id, user_id) VALUES (?, ?)",
             (event_id, user_id)
         )
         conn.commit()
@@ -358,7 +426,7 @@ def unattend_event(event_id):
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "DELETE FROM event_attendees WHERE event_id = %s AND user_id = %s",
+            "DELETE FROM event_attendees WHERE event_id = ? AND user_id = ?",
             (event_id, user_id)
         )
         conn.commit()
@@ -377,16 +445,16 @@ def add_to_my_calendar(event_id):
     
     user_id = session['user_id']
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     try:
-        cursor.execute("SELECT * FROM events WHERE id = %s", (event_id,))
+        cursor.execute("SELECT * FROM events WHERE id = ?", (event_id,))
         event = cursor.fetchone()
         
         if event:
             cursor.execute(
                 """INSERT INTO events (user_id, title, description, start_time, end_time, is_public) 
-                   VALUES (%s, %s, %s, %s, %s, 0)""",
-                (user_id, f"[Copy] {event['title']}", event['description'], event['start_time'], event.get('end_time'))
+                   VALUES (?, ?, ?, ?, ?, 0)""",
+                (user_id, f"[Copy] {event['title']}", event['description'], event['start_time'], event['end_time'])
             )
             conn.commit()
     except Exception as err:
@@ -407,8 +475,8 @@ def notes_page():
         
     user_id = session['user_id']
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM notes WHERE user_id = %s ORDER BY updated_at DESC", (user_id,))
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM notes WHERE user_id = ? ORDER BY updated_at DESC", (user_id,))
     notes = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -426,7 +494,7 @@ def add_note():
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO notes (user_id, title, content) VALUES (%s, %s, %s)", (user_id, title, content))
+    cursor.execute("INSERT INTO notes (user_id, title, content) VALUES (?, ?, ?)", (user_id, title, content))
     conn.commit()
     cursor.close()
     conn.close()
@@ -440,9 +508,9 @@ def task_details_page(task_id):
         
     user_id = session['user_id']
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM tasks WHERE id = %s AND user_id = %s", (task_id, user_id))
+    cursor.execute("SELECT * FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id))
     task = cursor.fetchone()
     
     if not task:
@@ -450,7 +518,7 @@ def task_details_page(task_id):
         conn.close()
         return redirect(url_for('tasks_page'))
 
-    cursor.execute("SELECT * FROM subtasks WHERE task_id = %s", (task_id,))
+    cursor.execute("SELECT * FROM subtasks WHERE task_id = ?", (task_id,))
     subtasks = cursor.fetchall()
     
     cursor.close()
@@ -466,7 +534,7 @@ def add_subtask(task_id):
     title = request.form['title']
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO subtasks (task_id, title) VALUES (%s, %s)", (task_id, title))
+    cursor.execute("INSERT INTO subtasks (task_id, title) VALUES (?, ?)", (task_id, title))
     conn.commit()
     cursor.close()
     conn.close()
@@ -483,12 +551,12 @@ def reports_page():
         
     user_id = session['user_id']
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     
-    cursor.execute("SELECT status, COUNT(*) as count FROM tasks WHERE user_id = %s GROUP BY status", (user_id,))
+    cursor.execute("SELECT status, COUNT(*) as count FROM tasks WHERE user_id = ? GROUP BY status", (user_id,))
     status_counts = cursor.fetchall()
     
-    cursor.execute("SELECT priority, COUNT(*) as count FROM tasks WHERE user_id = %s GROUP BY priority", (user_id,))
+    cursor.execute("SELECT priority, COUNT(*) as count FROM tasks WHERE user_id = ? GROUP BY priority", (user_id,))
     priority_counts = cursor.fetchall()
 
     cursor.close()
@@ -514,8 +582,8 @@ def forgot_password():
     if request.method == 'POST':
         username = request.form['username']
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
         user = cursor.fetchone()
         cursor.close()
         conn.close()
@@ -545,7 +613,7 @@ def reset_password_direct(user_id):
         new_password = generate_password_hash(password)
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE users SET password_hash = %s WHERE id = %s", (new_password, user_id))
+        cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_password, user_id))
         conn.commit()
         cursor.close()
         conn.close()
@@ -564,9 +632,9 @@ def admin_panel():
         return redirect(url_for('login'))
         
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     
-    cursor.execute("SELECT is_admin FROM users WHERE id = %s", (session['user_id'],))
+    cursor.execute("SELECT is_admin FROM users WHERE id = ?", (session['user_id'],))
     current_user = cursor.fetchone()
     
     if not current_user or not current_user['is_admin']:
@@ -591,8 +659,8 @@ def admin_edit_user(user_id):
         return redirect(url_for('login'))
         
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT is_admin FROM users WHERE id = %s", (session['user_id'],))
+    cursor = conn.cursor()
+    cursor.execute("SELECT is_admin FROM users WHERE id = ?", (session['user_id'],))
     current_user = cursor.fetchone()
     
     if not current_user or not current_user['is_admin']:
@@ -605,7 +673,7 @@ def admin_edit_user(user_id):
     is_admin = 1 if 'is_admin' in request.form else 0
 
     cursor.execute(
-        "UPDATE users SET username = %s, email = %s, is_admin = %s WHERE id = %s",
+        "UPDATE users SET username = ?, email = ?, is_admin = ? WHERE id = ?",
         (new_username, new_email, is_admin, user_id)
     )
     conn.commit()
@@ -619,8 +687,8 @@ def admin_delete_user(user_id):
         return redirect(url_for('login'))
         
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT is_admin FROM users WHERE id = %s", (session['user_id'],))
+    cursor = conn.cursor()
+    cursor.execute("SELECT is_admin FROM users WHERE id = ?", (session['user_id'],))
     current_user = cursor.fetchone()
     
     if not current_user or not current_user['is_admin'] or session['user_id'] == user_id:
@@ -628,9 +696,9 @@ def admin_delete_user(user_id):
         conn.close()
         return redirect(url_for('admin_panel'))
         
-    cursor.execute("DELETE FROM tasks WHERE user_id = %s", (user_id,))
-    cursor.execute("DELETE FROM events WHERE user_id = %s", (user_id,))
-    cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+    cursor.execute("DELETE FROM tasks WHERE user_id = ?", (user_id,))
+    cursor.execute("DELETE FROM events WHERE user_id = ?", (user_id,))
+    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
     conn.commit()
     cursor.close()
     conn.close()
