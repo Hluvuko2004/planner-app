@@ -1,11 +1,12 @@
 # 📋 PlannerPro - Productivity & Task Management System
 
-A responsive Python Flask & MySQL web application designed for personal and team productivity, allowing users to manage Kanban tasks, schedule events, keep track of quick notes, utilize a Pomodoro focus timer, and handle administrative user control.
+A responsive Python Flask web application designed for personal and team productivity, allowing users to manage Kanban tasks, schedule events, keep track of quick notes, utilize a Pomodoro focus timer, and handle administrative user control.
 
 ---
 
-## 🚀 Local Deployment & Access
+## 🚀 Live Access & Local Deployment
 
+**Live Application URL:** [https://hluvuko.pythonanywhere.com](https://hluvuko.pythonanywhere.com)  
 **Local Development URL:** [http://127.0.0.1:5000](http://127.0.0.1:5000)
 
 To explore the application without creating a new account, feel free to log in using the pre-configured test credentials below:
@@ -42,9 +43,9 @@ You can register these users manually via the `/register` page and add their sam
 
 ## 🛠️ Tech Stack
 * **Backend:** Python 3.x, Flask, Werkzeug Security (Password Hashing)
-* **Database:** MySQL / MariaDB (`mysql-connector-python`)
+* **Database:** SQLite (`sqlite3`)
 * **Frontend:** HTML5, CSS3, JavaScript, Jinja2 Templates, Lucide Icons
-* **Server Environment:** Flask Development Server (Localhost)
+* **Server Environment:** PythonAnywhere / Flask Development Server
 
 ---
 
@@ -52,5 +53,5 @@ You can register these users manually via the `/register` page and add their sam
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/your-username/planner-app.git](https://github.com/your-username/planner-app.git)
+git clone [https://github.com/Hluvuko2004/planner-app.git](https://github.com/Hluvuko2004/planner-app.git)
 cd planner-app
