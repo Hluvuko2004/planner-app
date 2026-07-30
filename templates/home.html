@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlannerPro - Master Your Events & Tasks</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+</head>
+<body>
+
+    <!-- Navigation Header -->
+    <nav class="navbar">
+        <div class="logo">📋 PlannerPro</div>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="/login" class="btn-secondary">Log In</a>
+            <a href="/register" class="btn-primary">Get Started Free</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero">
+        <div class="hero-content">
+            <span class="badge">🚀 Ultimate Productivity System</span>
+            <h1>Organize tasks, plan events & boost productivity.</h1>
+            <p>An all-in-one planner with interactive Kanban boards, event calendars, subtasks, and analytics — built for students and professionals.</p>
+            <div class="hero-actions">
+                <a href="/register" class="btn-primary btn-large">Start Planning for Free</a>
+                <a href="/login" class="btn-secondary btn-large">I already have an account</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Feature Highlights -->
+    <section id="features" class="features-section">
+        <h2>Everything you need to stay on top of work</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="icon">📊</div>
+                <h3>Smart Dashboard</h3>
+                <p>Track today's deadlines, upcoming events, and completion rates in real-time.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">📋</div>
+                <h3>Kanban Task Boards</h3>
+                <p>Drag and drop tasks between To Do, In Progress, and Completed columns.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">📅</div>
+                <h3>Event Calendar</h3>
+                <p>Seamlessly view work shifts, meetings, and project milestones on a visual calendar.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">📈</div>
+                <h3>Productivity Reports</h3>
+                <p>Visualize completed tasks week by week using built-in chart analytics.</p>
+            </div>
+        </div>
+    </section>
+
+</body>
+</html>

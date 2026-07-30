@@ -1,0 +1,152 @@
+{% extends "layout.html" %}
+
+{% block title %}Tasks Board{% endblock %}
+
+{% block content %}
+<div class="tasks-page-header">
+    <div>
+        <h1>📋 Kanban Tasks Board</h1>
+        <p class="text-muted">Manage, organize, and drag tasks across your workflow.</p>
+    </div>
+</div>
+
+<!-- Task Creation Form Card -->
+<div class="card-box">
+    <h3 class="form-title">+ Create New Task</h3>
+    <form action="/tasks/add" method="POST" class="task-form">
+        <input type="text" name="title" placeholder="Task title..." required class="form-input flex-2">
+        <input type="text" name="description" placeholder="Description..." required class="form-input flex-3">
+        <select name="priority" class="form-input flex-1">
+            <option value="Low">🟢 Low</option>
+            <option value="Medium" selected>🟡 Medium</option>
+            <option value="High">🔴 High</option>
+        </select>
+        <input type="date" name="due_date" class="form-input flex-1-2">
+        <button type="submit" class="btn-submit">Add</button>
+    </form>
+</div>
+
+<!-- Kanban Columns Layout -->
+<div class="kanban-grid">
+    
+    <!-- Column 1: To Do -->
+    <div class="kanban-column">
+        <div class="column-header">
+            <h3 class="column-title text-todo">To Do</h3>
+            <span class="task-badge">{{ board.todo|length }}</span>
+        </div>
+        <div class="column-body" data-status="todo">
+            {% for task in board.todo %}
+            <div class="task-card priority-{{ task.priority|lower }}" draggable="true" data-task-id="{{ task.id }}">
+                <h4 class="task-card-title">
+                    <a href="/tasks/{{ task.id }}" class="task-link">{{ task.title }}</a>
+                </h4>
+                <p class="task-card-desc">{{ task.description }}</p>
+                <div class="task-card-footer">
+                    <span class="priority-label">{{ task.priority }}</span>
+                    <a href="/tasks/delete/{{ task.id }}" class="delete-link" title="Delete">🗑️</a>
+                </div>
+            </div>
+            {% else %}
+            <p class="empty-msg">No tasks here.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Column 2: In Progress -->
+    <div class="kanban-column">
+        <div class="column-header">
+            <h3 class="column-title text-progress">In Progress</h3>
+            <span class="task-badge">{{ board.in_progress|length }}</span>
+        </div>
+        <div class="column-body" data-status="in_progress">
+            {% for task in board.in_progress %}
+            <div class="task-card priority-{{ task.priority|lower }}" draggable="true" data-task-id="{{ task.id }}">
+                <h4 class="task-card-title">
+                    <a href="/tasks/{{ task.id }}" class="task-link">{{ task.title }}</a>
+                </h4>
+                <p class="task-card-desc">{{ task.description }}</p>
+                <div class="task-card-footer">
+                    <span class="priority-label">{{ task.priority }}</span>
+                    <a href="/tasks/delete/{{ task.id }}" class="delete-link" title="Delete">🗑️</a>
+                </div>
+            </div>
+            {% else %}
+            <p class="empty-msg">Nothing in progress.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Column 3: Completed -->
+    <div class="kanban-column">
+        <div class="column-header">
+            <h3 class="column-title text-completed">Completed</h3>
+            <span class="task-badge">{{ board.completed|length }}</span>
+        </div>
+        <div class="column-body" data-status="completed">
+            {% for task in board.completed %}
+            <div class="task-card task-card-done" draggable="true" data-task-id="{{ task.id }}">
+                <h4 class="task-card-title">
+                    <a href="/tasks/{{ task.id }}" class="task-link">{{ task.title }}</a>
+                </h4>
+                <p class="task-card-desc">{{ task.description }}</p>
+                <div class="task-card-footer">
+                    <span class="done-badge">Done</span>
+                    <a href="/tasks/delete/{{ task.id }}" class="delete-link" title="Delete">🗑️</a>
+                </div>
+            </div>
+            {% else %}
+            <p class="empty-msg">No completed tasks.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const cards = document.querySelectorAll('.task-card');
+    const columns = document.querySelectorAll('.column-body');
+    let draggedCard = null;
+
+    cards.forEach(function (card) {
+        card.addEventListener('dragstart', function () {
+            draggedCard = card;
+            card.style.opacity = '0.4';
+        });
+        card.addEventListener('dragend', function () {
+            card.style.opacity = '1';
+            draggedCard = null;
+        });
+    });
+
+    columns.forEach(function (column) {
+        column.addEventListener('dragover', function (e) {
+            e.preventDefault();
+        });
+        column.addEventListener('drop', function (e) {
+            e.preventDefault();
+            if (!draggedCard) return;
+
+            column.appendChild(draggedCard);
+            const taskId = draggedCard.dataset.taskId;
+            const newStatus = column.dataset.status;
+
+            fetch('/api/update_task_status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ task_id: taskId, status: newStatus })
+            })
+            .then(function () {
+                window.location.reload();
+            })
+            .catch(function (err) {
+                console.error(err);
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

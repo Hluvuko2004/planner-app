@@ -1,0 +1,115 @@
+{% extends "layout.html" %}
+
+{% block title %}Events & Community Hub{% endblock %}
+
+{% block content %}
+<div class="tasks-page-header">
+    <div>
+        <h1>🎉 Events & Community Hub</h1>
+        <p class="text-muted">Manage your personal schedule and discover public community events.</p>
+    </div>
+</div>
+
+<!-- Grid Layout: Public Events on left, Personal Events on right -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 25px; margin-top: 20px;">
+    
+    <!-- Left Column: Public Community Feed -->
+    <div class="card-box" style="background: white; padding: 25px;">
+        <h3 style="margin-top: 0; color: #1e293b; font-size: 1.1rem; margin-bottom: 20px;">📢 Public Community Events</h3>
+        
+        {% if public_events %}
+            <div style="display: grid; gap: 15px;">
+                {% for event in public_events %}
+                <div style="padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc;">
+                    <h4 style="margin: 0 0 5px 0; color: #2563eb;">{{ event.title }}</h4>
+                    <p style="margin: 0 0 10px 0; color: #475569; font-size: 0.9rem;">{{ event.description }}</p>
+                    <div style="margin-bottom: 12px;">
+                        <span style="font-size: 0.8rem; color: #64748b; background: #e2e8f0; padding: 3px 8px; border-radius: 4px;">
+                            📅 {{ event.start_time }}
+                        </span>
+                    </div>
+
+                    <!-- Attendees List Box -->
+                    <div style="margin: 12px 0; font-size: 0.85rem; color: #475569; background: #ffffff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                        <strong style="color: #1e293b;">Attending ({{ event.attendees | length }}):</strong>
+                        {% if event.attendees %}
+                            <ul style="margin: 5px 0 0 20px; padding: 0;">
+                            {% for att in event.attendees %}
+                                <li>{{ att.username }}</li>
+                            {% endfor %}
+                            </ul>
+                        {% else %}
+                            <span style="display: block; margin-top: 4px; font-style: italic; color: #64748b;">No attendees yet. Be the first!</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+                        {% if event.is_attending %}
+                            <form action="{{ url_for('unattend_event', event_id=event.id) }}" method="POST" style="margin: 0;">
+                                <button type="submit" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">Cancel Attendance</button>
+                            </form>
+                        {% else %}
+                            <form action="{{ url_for('attend_event', event_id=event.id) }}" method="POST" style="margin: 0;">
+                                <button type="submit" style="background: #22c55e; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">Mark as Attending</button>
+                            </form>
+                        {% endif %}
+
+                        <form action="{{ url_for('add_to_my_calendar', event_id=event.id) }}" method="POST" style="margin: 0;">
+                            <button type="submit" style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">📥 Add to My Calendar</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p style="color: #64748b; font-size: 0.9rem;">No public community events posted yet.</p>
+        {% endif %}
+    </div>
+
+    <!-- Right Column: Personal Schedule & Quick Add Event -->
+    <div style="display: flex; flex-direction: column; gap: 25px;">
+        
+        <!-- Add Event Card -->
+        <div class="card-box" style="background: white; padding: 20px;">
+            <h3 style="margin-top: 0; color: #1e293b; font-size: 1rem; margin-bottom: 15px;">Add New Event</h3>
+            <form action="/events/add" method="POST">
+                <div style="margin-bottom: 12px;">
+                    <input type="text" name="title" required placeholder="Event Title" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem;">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <textarea name="description" placeholder="Description" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; height: 60px; resize: vertical;"></textarea>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 0.8rem; color: #64748b; display: block; margin-bottom: 3px;">Date & Time</label>
+                    <input type="datetime-local" name="start_time" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem;">
+                </div>
+                <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="is_public" name="is_public" value="1">
+                    <label for="is_public" style="font-size: 0.85rem; color: #475569; cursor: pointer;">Publish to Public Community Feed</label>
+                </div>
+                <button type="submit" class="btn-submit" style="width: 100%; padding: 10px; font-size: 0.9rem;">Create Event</button>
+            </form>
+        </div>
+
+        <!-- Personal Events List -->
+        <div class="card-box" style="background: white; padding: 20px;">
+            <h3 style="margin-top: 0; color: #1e293b; font-size: 1rem; margin-bottom: 15px;">My Personal Schedule</h3>
+            {% if my_events %}
+                <ul style="padding-left: 15px; margin: 0; color: #475569; font-size: 0.9rem;">
+                    {% for ev in my_events %}
+                    <li style="margin-bottom: 8px;">
+                        <strong>{{ ev.title }}</strong><br>
+                        <small style="color: #64748b;">{{ ev.start_time }}</small>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p style="color: #64748b; font-size: 0.85rem; margin: 0;">No personal events scheduled.</p>
+            {% endif %}
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

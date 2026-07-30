@@ -1,0 +1,77 @@
+# -------------------------------------------------------------
+# NOTES & TASK DETAILS ROUTES
+# -------------------------------------------------------------
+@app.route('/notes')
+def notes_page():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    user_id = session['user_id']
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM notes WHERE user_id = %s ORDER BY updated_at DESC", (user_id,))
+    notes = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return render_template('notes.html', notes=notes, active_page='notes')
+
+@app.route('/notes/add', methods=['POST'])
+def add_note():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    user_id = session['user_id']
+    title = request.form['title']
+    content = request.form['content']
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO notes (user_id, title, content) VALUES (%s, %s, %s)", (user_id, title, content))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return redirect(url_for('notes_page'))
+
+@app.route('/tasks/<int:task_id>')
+def task_details_page(task_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    user_id = session['user_id']
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    # Fetch specific task ensuring user owns it
+    cursor.execute("SELECT * FROM tasks WHERE id = %s AND user_id = %s", (task_id, user_id))
+    task = cursor.fetchone()
+    
+    if not task:
+        cursor.close()
+        conn.close()
+        return redirect(url_for('tasks_page'))
+
+    # Fetch subtasks
+    cursor.execute("SELECT * FROM subtasks WHERE task_id = %s", (task_id,))
+    subtasks = cursor.fetchall()
+    
+    cursor.close()
+    conn.close()
+
+    return render_template('task_details.html', task=task, subtasks=subtasks, active_page='tasks')
+
+@app.route('/tasks/<int:task_id>/subtask/add', methods=['POST'])
+def add_subtask(task_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    title = request.form['title']
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO subtasks (task_id, title) VALUES (%s, %s)", (task_id, title))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return redirect(url_for('task_details_page', task_id=task_id))

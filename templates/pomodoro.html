@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+
+{% block title %}Pomodoro Focus Timer{% endblock %}
+
+{% block content %}
+<div class="tasks-page-header">
+    <div>
+        <h1>🍅 Pomodoro Focus Timer</h1>
+        <p class="text-muted">Boost productivity using structured 25-minute focus intervals.</p>
+    </div>
+</div>
+
+<div class="card-box" style="background: white; text-align: center; max-width: 500px; margin: 40px auto; padding: 40px;">
+    <h2 id="timerDisplay" style="font-size: 4rem; color: #1e293b; margin-bottom: 20px; font-family: monospace;">25:00</h2>
+    <p id="timerStatus" style="color: #64748b; margin-bottom: 30px; font-weight: 500;">Ready to focus?</p>
+    
+    <div style="display: flex; gap: 15px; justify-content: center;">
+        <button id="startBtn" class="btn-submit" onclick="startTimer()" style="background: #16a34a; padding: 12px 25px;">Start</button>
+        <button id="pauseBtn" class="btn-submit" onclick="pauseTimer()" style="background: #d97706; padding: 12px 25px;">Pause</button>
+        <button id="resetBtn" class="btn-submit" onclick="resetTimer()" style="background: #dc2626; padding: 12px 25px;">Reset</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let timerMinutes = 25;
+let timerSeconds = 0;
+let interval = null;
+let isRunning = false;
+
+function updateDisplay() {
+    let m = timerMinutes < 10 ? '0' + timerMinutes : timerMinutes;
+    let s = timerSeconds < 10 ? '0' + timerSeconds : timerSeconds;
+    document.getElementById('timerDisplay').innerText = `${m}:${s}`;
+}
+
+function startTimer() {
+    if (isRunning) return;
+    isRunning = true;
+    document.getElementById('timerStatus').innerText = "Focus session in progress... 🚀";
+    
+    interval = setInterval(() => {
+        if (timerSeconds === 0) {
+            if (timerMinutes === 0) {
+                clearInterval(interval);
+                isRunning = false;
+                alert("Pomodoro session completed! Take a 5-minute break.");
+                resetTimer();
+                return;
+            }
+            timerMinutes--;
+            timerSeconds = 59;
+        } else {
+            timerSeconds--;
+        }
+        updateDisplay();
+    }, 1000);
+}
+
+function pauseTimer() {
+    clearInterval(interval);
+    isRunning = false;
+    document.getElementById('timerStatus').innerText = "Timer paused.";
+}
+
+function resetTimer() {
+    clearInterval(interval);
+    isRunning = false;
+    timerMinutes = 25;
+    timerSeconds = 0;
+    updateDisplay();
+    document.getElementById('timerStatus').innerText = "Ready to focus?";
+}
+</script>
+{% endblock %}

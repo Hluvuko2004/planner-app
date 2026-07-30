@@ -1,0 +1,106 @@
+{% extends "layout.html" %}
+
+{% block title %}Admin Panel{% endblock %}
+
+{% block content %}
+<div class="tasks-page-header">
+    <div>
+        <h1>⚙️ System Administration</h1>
+        <p class="text-muted">Manage registered user accounts and oversee platform operations.</p>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px;">
+    <div class="card-box" style="background: white; padding: 20px;">
+        <p style="color: #64748b; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 5px;">Total Users Registered</p>
+        <h2 style="font-size: 2rem; color: #1e293b; margin: 0;">{{ users|length }}</h2>
+    </div>
+    <div class="card-box" style="background: white; padding: 20px;">
+        <p style="color: #64748b; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 5px;">Total System Tasks</p>
+        <h2 style="font-size: 2rem; color: #2563eb; margin: 0;">{{ total_tasks }}</h2>
+    </div>
+</div>
+
+<!-- Users Management Table (CRUD) -->
+<div class="card-box" style="background: white; padding: 20px;">
+    <h3 style="margin-top: 0; margin-bottom: 20px; color: #1e293b; font-size: 1.1rem;">User Account Management (CRUD)</h3>
+    
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+            <thead>
+                <tr style="border-bottom: 2px solid #e2e8f0; color: #64748b;">
+                    <th style="padding: 12px;">ID</th>
+                    <th style="padding: 12px;">Username</th>
+                    <th style="padding: 12px;">Email</th>
+                    <th style="padding: 12px;">Role</th>
+                    <th style="padding: 12px; text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 12px; color: #64748b;">#{{ u.id }}</td>
+                    <td style="padding: 12px; font-weight: 600; color: #1e293b;">{{ u.username }}</td>
+                    <td style="padding: 12px; color: #475569;">{{ u.email }}</td>
+                    <td style="padding: 12px;">
+                        {% if u.is_admin %}
+                        <span style="background: #dbeafe; color: #1d4ed8; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">Admin</span>
+                        {% else %}
+                        <span style="background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">User</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 12px; text-align: right;">
+                        <button onclick="openEditModal('{{ u.id }}', '{{ u.username }}', '{{ u.email }}', '{{ u.is_admin }}')" style="background: #e2e8f0; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; cursor: pointer; color: #334155; margin-right: 5px;">Edit</button>
+                        
+                        {% if u.id != session['user_id'] %}
+                        <a href="/admin/users/delete/{{ u.id }}" onclick="return confirm('Are you sure you want to delete this user and all their tasks?');" style="background: #fee2e2; color: #dc2626; padding: 6px 12px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; text-decoration: none;">Delete</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="editUserModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+    <div style="background: white; padding: 30px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+        <h3 style="margin-top: 0; color: #1e293b; font-size: 1.2rem; margin-bottom: 20px;">Edit User Account</h3>
+        
+        <form id="editUserForm" method="POST">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 5px;">Username</label>
+                <input type="text" id="editUsername" name="username" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 5px;">Email</label>
+                <input type="email" id="editEmail" name="email" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem;">
+            </div>
+            <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="editIsAdmin" name="is_admin" value="1">
+                <label for="editIsAdmin" style="font-size: 0.85rem; color: #475569; cursor: pointer;">Grant Admin Privileges</label>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="closeEditModal()" style="background: #e2e8f0; color: #334155; border: none; padding: 8px 15px; border-radius: 6px; font-weight: 600; cursor: pointer;">Cancel</button>
+                <button type="submit" class="btn-submit" style="padding: 8px 18px; font-size: 0.9rem;">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(id, username, email, isAdmin) {
+    document.getElementById('editUserForm').action = '/admin/users/edit/' + id;
+    document.getElementById('editUsername').value = username;
+    document.getElementById('editEmail').value = email;
+    document.getElementById('editIsAdmin').checked = (isAdmin === '1');
+    document.getElementById('editUserModal').style.display = 'flex';
+}
+
+function closeEditModal() {
+    document.getElementById('editUserModal').style.display = 'none';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log In - PlannerPro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #0f172a;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .auth-container { 
+            width: 100%; 
+            max-width: 400px; 
+            margin: 20px; 
+            background: #1e293b; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-sizing: border-box;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        .auth-container h2 {
+            color: #f8fafc;
+            margin-top: 0;
+        }
+        .input-group {
+            position: relative;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .auth-container input { 
+            width: 100%; 
+            padding: 12px 40px 12px 12px; 
+            border-radius: 6px; 
+            border: 1px solid #334155; 
+            background: #0f172a; 
+            color: white; 
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        .auth-container input:focus {
+            outline: none;
+            border-color: #38bdf8;
+        }
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 0;
+            width: auto;
+            margin: 0;
+        }
+        .auth-container button[type="submit"] { 
+            width: 100%; 
+            margin-top: 15px; 
+            padding: 12px;
+            cursor: pointer; 
+            background-color: #38bdf8;
+            color: #0f172a;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        .auth-container button[type="submit"]:hover {
+            background-color: #0ea5e9;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <h2>Welcome Back</h2>
+        <p style="color: #94a3b8; margin-bottom: 20px;">Log in to access your planner.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              {% if category == 'success' %}
+                <p style="color: #16a34a; background: #dcfce7; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9rem;">{{ message }}</p>
+              {% else %}
+                <p style="color: #ef4444; background: #fee2e2; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9rem;">{{ message }}</p>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="/login" method="POST">
+            <div class="input-group">
+                <input type="text" name="username" placeholder="Username or Email" required>
+            </div>
+            <div class="input-group">
+                <input type="password" id="password" name="password" placeholder="Password" required>
+                <button type="button" class="toggle-password" onclick="togglePassword('password', this)">👁️</button>
+            </div>
+            
+            <div style="text-align: right; margin-top: 5px;">
+                <a href="/forgot-password" style="color: #38bdf8; font-size: 0.85rem; text-decoration: none;">Forgot password?</a>
+            </div>
+
+            <button type="submit">Log In</button>
+        </form>
+        
+        <p style="margin-top: 20px; text-align: center; color: #94a3b8; font-size: 0.9rem;">
+            Don't have an account? <a href="/register" style="color: #38bdf8;">Register</a>
+        </p>
+    </div>
+
+    <script>
+        function togglePassword(fieldId, btn) {
+            const field = document.getElementById(fieldId);
+            if (field.type === "password") {
+                field.type = "text";
+                btn.textContent = "👁️‍🗨️";
+            } else {
+                field.type = "password";
+                btn.textContent = "👁️";
+            }
+        }
+    </script>
+</body>
+</html>

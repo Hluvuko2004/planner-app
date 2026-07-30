@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+
+{% block title %}Task Details{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <a href="/tasks" style="color: #2563eb; text-decoration: none; font-size: 0.9rem; font-weight: 600; display: inline-block; margin-bottom: 15px;">← Back to Tasks Board</a>
+
+    <div style="background: white; padding: 30px; border-radius: 12px; border: 1px solid #e2e8f0;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+            <h1 style="font-size: 1.5rem;">{{ task.title }}</h1>
+            <span style="background: #f1f5f9; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">{{ task.priority }} Priority</span>
+        </div>
+        
+        <p style="color: #64748b; font-size: 0.95rem; line-height: 1.5; margin-bottom: 25px;">{{ task.description }}</p>
+
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin-bottom: 25px;">
+
+        <h3 style="font-size: 1.1rem; margin-bottom: 15px;">☑ Subtasks Checklist</h3>
+        
+        <!-- Subtask List -->
+        <div style="margin-bottom: 20px;">
+            {% for sub in subtasks %}
+            <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
+                <input type="checkbox" {% if sub.is_completed %}checked{% endif %} disabled>
+                <span class="subtask-text {% if sub.is_completed %}completed-subtask{% endif %}">{{ sub.title }}</span>
+            </div>
+            {% else %}
+            <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 15px;">No subtasks added for this task yet.</p>
+            {% endfor %}
+        </div>
+
+        <!-- Add Subtask Form -->
+        <form action="/tasks/{{ task.id }}/subtask/add" method="POST" style="display: flex; gap: 10px;">
+            <input type="text" name="title" placeholder="Add a subtask item..." required style="flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none;">
+            <button type="submit" style="background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer;">Add Subtask</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
